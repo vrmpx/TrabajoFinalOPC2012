@@ -2,34 +2,38 @@ TITLE Prueba de ordenamiento
 
 INCLUDE Irvine32.inc
 
-;definimos el tipo de dato de puntero a byte
-PBYTE TYPEDEF PTR BYTE
-PWORD TYPEDEF PTR WORD
+;Se necesitan punteros a DWORD para que el procedimiento
+;de ordenamiento (SelectionSort) funcione
 PDWORD TYPEDEF PTR DWORD
 
 .data
 arreglo DWORD 6, 5, 4, 3, 5, 2, 9, 11
+arreglo2 DWORD 6, 5, 4, 80, 5, 2, 9, 100, 12
 
 .code
-;Ordenamiento por seleccion
-;Ordena el arreglo de DWORD's (elem. de 32bit) dado por esi
-;ordena ecx elementos
+
+;--------------------------------------------------------
+; Ordenamiento por seleccion
+; Ordena el arreglo de DWORD's (elem. de 32bit) 
+; dado por esi. Ordena ecx elementos
+; Recibe:
+; - Registro ESI: OFFSET del arreglo a ordenar
+; - Registro ECX: Numero de elementos a ordenar
+;--------------------------------------------------------
 SelectionSort PROC
 .data
-	act PDWORD ?
-	idx PDWORD ? ;para moverse en el arreglo
-	imin PDWORD ? ;apunta al valor minimo
-	tamArr DWORD ? ;contador para indicar fin
-	cont DWORD 0 ;contados 
-	aux DWORD ?
-	parr PDWORD ?
+	act PDWORD ? ;posicion actual que queremos ordenar
+	idx PDWORD ? ;indice para moverse en el arreglo
+	imin PDWORD ? ;apunta al valor minimo encontrado
+	tamArr DWORD ? ;tamano del arreglo "decreciente"
 .code
 	pushad
-	;calculamos edi = limite superior del arreglo
+	;sacamos los valores iniciales
 	mov tamArr, ecx
 	mov act, esi
-	mov parr, esi
 INI:
+	;preparamos el loop q busca el valor minimo
+	;entre [esi, esi + tamArr]
 	mov esi, act
 	mov idx, esi
 	mov imin, esi
@@ -46,31 +50,19 @@ L1:
 	mov esi, idx
 	mov imin, esi
 NEXT:
-	;incrementamos idx
+	;incrementamos idx pa q avancemos en el arreglo
 	add idx, TYPE DWORD
 	loop L1
-	
-	;mov esi, act
-	;mov eax, [esi]
-	;mov aux, eax
-	;mov [esi], [imin]
-	;mov [imin], aux
-	
+	;preparamos el intercambio
 	mov esi, act
 	mov eax, [esi]
 	mov esi, imin
 	mov ebx, [esi]
-	;call DumpRegs
-	;call imprArr
-	;xchg eax, imin
+	;hacemos el intercambio entre imin y act
 	mov [esi], eax
 	mov esi, act
 	mov [esi], ebx
-	;call imprArr
-	;mov act, eax
-	;call imprArr
-	;call ReadChar
-
+	;avanzamos en la siguiente posicion a ordenar
 	add act, TYPE DWORD
 	dec tamArr
 	cmp tamArr, 0
@@ -79,7 +71,14 @@ FIN:
 	popad
 	ret
 SelectionSort ENDP
+;--------------------------------------------------------
 
+;--------------------------------------------------------
+; Imprime el arreglo "arreglo". Usaar este proc. para
+; depurar.
+; Recibe: Nada
+; Devuelve: Nada
+;--------------------------------------------------------
 imprArr PROC USES esi ecx ebx
 	mov esi, OFFSET arreglo
 	mov ecx, LENGTHOF arreglo
@@ -87,15 +86,35 @@ imprArr PROC USES esi ecx ebx
 	call DumpMem
 	ret
 imprArr ENDP
+;--------------------------------------------------------
 
-;main()
+;--------------------------------------------------------
+; Procedimiento main(). Punto de entrada del programa.
+; Recibe: Nada
+; Devuelve: Nada
+;--------------------------------------------------------
 main PROC
+	;PRUEBA 1: Un arreglo
 	mov esi, OFFSET arreglo
 	mov ecx, LENGTHOF arreglo
 	call SelectionSort
-	
-	call imprArr
+	mov ebx, TYPE arreglo
+	call DumpMem
+	;PRUEBA 2: Otro arreglo con otro tamanio 
+	mov esi, OFFSET arreglo2
+	mov ecx, 3
+	call SelectionSort
+	mov ebx, TYPE arreglo2
+	call DumpMem
+	;PRUEBA 3: Otro arreglo 
+	mov esi, OFFSET arreglo2
+	mov ecx, LENGTHOF arreglo2
+	call SelectionSort
+	mov ebx, TYPE arreglo2
+	call DumpMem
 	
 	exit
 main ENDP
+;--------------------------------------------------------
+
 END MAIN
