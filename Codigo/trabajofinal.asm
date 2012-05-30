@@ -6,11 +6,11 @@ TITLE TrabajoFinal (trabajofinal.asm)
 INCLUDE Irvine32.inc
 INCLUDE macros.inc
 
-ARRAYSIZE = 5
-.data
-X REAL10 5.0,4.5,3.2,2.1,1.0
-Y REAL4 5.0
+ARRAYSIZE = 11
 
+.data
+X REAL10 102.03,65.0,1.002,33.29,33.44,55.18,22.1,0.0,1.0,99.0,1000.01
+;X REAL10 5.4E10, 4.5E9, 3.4E8, 2.3E11, 1.2E5, 0.1E1
 
 ;Variables used by Irvine Kip's Procedures
 pwr10  DWORD  1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
@@ -22,11 +22,8 @@ MAIN PROC
 	finit ;Initialize FPU
 
 	call PrintX
-
 	call InsertionSort
-	
 	call PrintX
-	
 	
 	exit
 MAIN ENDP
@@ -37,6 +34,12 @@ MAIN ENDP
 ;
 ;--------------------------------------------------------
 InsertionSort PROC
+.data
+	msgChk01 BYTE "Verificando para: ",0
+	msgChk02 BYTE "End while",0
+	msgChk03 BYTE "JBE!",0
+	tmp REAL10 0.0
+.code
 	mov esi, 0
 	mov ecx, ARRAYSIZE
 	
@@ -44,24 +47,29 @@ InsertionSort PROC
 L1:
 	fld X[esi]    ;Guardamos item
 	mov ebx, esi
-
 	
 ;while
 L2:
 	cmp ebx, 0
 	jle endwhile
-	fld X[ebx-1]
-	jle endwhile
+	fld X[ebx-TYPE REAL10]
+	call compara
+	jbe below
 	
 	;Shift element one slot to the right
 	fstp X[ebx]
-	dec ebx
+	sub ebx, TYPE REAL10
 	jmp L2
 	
+below:
+	fstp tmp
 endwhile:
 	fstp X[ebx]
-	inc esi
-	loop L1
+	add esi, TYPE REAL10
+
+	;loop L1
+	dec ecx
+	jnz L1
 	
 endfor:
 	ret
@@ -78,6 +86,9 @@ InsertionSort ENDP
 ; Recibe: st(0) y st(1) dos numeros de punto flotante
 ;         en el stack
 ; Devuelve: CF,SF,ZF de acuerdo al resultado
+; Modo de uso:
+;			JBE si ST(1) <= ST(0)
+;			JAE si ST(1) >= ST(0)
 ;--------------------------------------------------------
 compara PROC USES ax
 	fcom
@@ -93,10 +104,11 @@ compara ENDP
 ; Recibe: Nada
 ; Devuelve: Nada
 ;--------------------------------------------------------
-PrintX PROC
+PrintX PROC USES edx esi ecx
 .data
 	msg1 BYTE "=================================",13,10,0
 	msg2 BYTE "Begin Array: ",13,10,0
+	tmp0 REAL10 0.0
 .code
 	mov edx, OFFSET msg1
 	call WriteString
@@ -110,6 +122,7 @@ PrintX PROC
 L1:
 	fld X[esi]
 	call WriteFloat
+	fstp tmp0
 	call CrLf
 	add esi, TYPE REAL10
 	loop L1
