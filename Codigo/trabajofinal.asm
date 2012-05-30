@@ -30,42 +30,46 @@ MAIN ENDP
 
 
 ;--------------------------------------------------------
-;
-;
+; InsertionSort
+; Ordena el arreglo X utilizando el algoritmo de insercion
+; Recibe:
+;		Un arreglo de punto flotante REAL10 en X
+; Devuelve:
+;		El mismo arreglo ordenado en X
 ;--------------------------------------------------------
-InsertionSort PROC
+InsertionSort PROC USES esi ecx ebx 
 .data
-	msgChk01 BYTE "Verificando para: ",0
-	msgChk02 BYTE "End while",0
-	msgChk03 BYTE "JBE!",0
 	tmp REAL10 0.0
 .code
-	mov esi, 0
-	mov ecx, ARRAYSIZE
+	mov esi, 0		
+	add esi, TYPE REAL10	;ESI apunta a un elemento en X
+	mov ecx, ARRAYSIZE - 1
 	
-;for
+;for (ESI = 1; ESI < ECX; ESI++)
 L1:
-	fld X[esi]    ;Guardamos item
-	mov ebx, esi
+	fld X[esi]    ;ST(0) = X[ESI] guardamos el dato temporal
+	mov ebx, esi	;EBX = ESI
 	
-;while
+;while (EBX > 0) && (X[EBX - 1] > X[ESI]) 
 L2:
-	cmp ebx, 0
-	jle endwhile
-	fld X[ebx-TYPE REAL10]
+	cmp ebx, 0	
+	jle endwhile	;JMP si EBX <= 0
+	
+	fld X[ebx-TYPE REAL10]	;ST(0) = X[EBX - 1], ST(1) = X[ESI]
 	call compara
-	jbe below
+	jbe below	;JMP si ST(0) >= ST(1)
 	
 	;Shift element one slot to the right
-	fstp X[ebx]
-	sub ebx, TYPE REAL10
+	fstp X[ebx]	;X[EBX] = ST(0),	ST(0) = X[ESI]
+	sub ebx, TYPE REAL10	;EBX = EBX - 1
 	jmp L2
 	
 below:
-	fstp tmp
+	fstp tmp	;Llegando aqui nos sobra un elemento en ST(0)
+	
 endwhile:
-	fstp X[ebx]
-	add esi, TYPE REAL10
+	fstp X[ebx]	;X[EBX] = ST(0) = X[ESI]
+	add esi, TYPE REAL10	;ESI = ESI + 1
 
 	;loop L1
 	dec ecx
