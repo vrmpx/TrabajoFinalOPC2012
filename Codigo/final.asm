@@ -81,13 +81,14 @@ Kill ENDP
 ; Regresa:
 ; Arreglo Global X con los numeros leidos del archivo
 ;--------------------------------------------------------
-LeeDatos PROC uses eax ecx edx
+LeeDatos PROC uses eax ecx edx esi
 .data
 	LeeDatos_msgin BYTE "Archivo de entrada?", CR, LF, 0
 	LeeDatos_msgok BYTE "Archivo leido exitorsamente: ", 0
 	LeeDatos_msgerr BYTE "PROC LeeDatos: ERROR al leer el archivo: ", 0
 	nomArchivo BYTE "float.in", 0
 	linea BYTE 20 DUP (0)
+	parr PREAL10 ?
 .code
 	;leemos el nombre del archivo
 	;mov edx, OFFSET LeeDatos_msgin
@@ -102,14 +103,22 @@ LeeDatos PROC uses eax ecx edx
 	mov bx, ax
 	jc ERR1
 	;imprimimos mensaje exitosos
-	mov edx, OFFSET LeeDatos_msgok
+	mov dx, OFFSET LeeDatos_msgok
 	call WriteString
-	mov edx, OFFSET nomArchivo
+	mov dx, OFFSET nomArchivo
 	call WriteString
 	call Crlf
-	;prueba de ReadFloat Modificado
+	;movemos el nandle
 	mov bx, ax
+LD_L1:
 	call ReadFloat
+	call LeeByte
+	call ReadFloat
+	
+	;MOV si, parr
+	;fstp real10 ptr [si]
+	;add parr, TYPE REAL10
+	;loop LD_L1
 	;cerramos el archivo
 	mov bx, ax
 	call CierraArchivo
@@ -123,6 +132,47 @@ ERR1:
 	call Kill
 	ret
 LeeDatos ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Lee una linea del archivo y guarda como entero 
+; positivo.
+; Recibe:
+; - Registro BX: Handle del arcihvo
+; Regresa:
+; - Registro AX: El entero leido
+;--------------------------------------------------------
+LeeInt PROC uses edx ebx edx esi
+.data
+	LeeInt_fh WORD ?
+.code
+	mov ax, 0
+	mov LeeInt_fh, bx
+	;bx nos lo pasan
+	call LeeByte	
+	mov cl, al
+	cmp cl, CR
+	je LI_FIN
+	mov dx, 0
+	mov ax, 0
+LI_E0:
+	mov dx, 0
+	mov bx, 10
+	mul bx
+	mov dx, ax
+	sub cx, 030H
+	add dx, cx
+	mov bx, LeeInt_fh
+	call LeeByte
+	mov cx, ax
+	mov ax, dx
+	cmp cl, CR
+	jne LI_E0
+LI_FIN:
+	call LeeByte
+	mov ax, dx
+	ret
+LeeInt ENDP
 ;--------------------------------------------------------
 
 
@@ -144,17 +194,18 @@ LeeLinea PROC uses bx cx di dx
 	mov pbuff, dx
 	mov cx, 1
 	mov dx, OFFSET caract
-L1:
+LL_L1:
 	call LeeBytes
-	jc ERR
+	jc LL_ERR
 	mov al, caract
 	mov di, pbuff
 	mov [di], al
 	add pbuff, TYPE BYTE
 	cmp caract, CR
-	jne L1
+	jne LL_L1
+	call LeeBytes
 	ret
-ERR:
+LL_ERR:
 	mov edx, OFFSET msgerr
 	call WriteString
 	call Kill
@@ -171,7 +222,7 @@ LeeLinea ENDP
 ;--------------------------------------------------------
 LeeByte PROC uses cx dx
 .data
-	LeeByte_car BYTE 0
+	LeeByte_car BYTE 0, 0, 0
 .code
 	mov ah, DOS_READ_FILE
 	;bx nos lo dan como parametro
@@ -179,6 +230,7 @@ LeeByte PROC uses cx dx
 	mov dx, OFFSET LeeByte_car
 	int DOS_INT
 	mov al, LeeByte_car
+	;call WriteChar
 	ret
 LeeByte ENDP
 ;--------------------------------------------------------
@@ -772,6 +824,7 @@ GetChar  PROC
 ; echoes end of line character to console window.
 ;
 ; Modified by Irvine (7/18/05): removed check for Ctl-C.
+; Modified by Fernando Aguilar (05/31/12): Read from File
 ;------------------------------------------------------
 
     ;call ReadChar   	; get a character from keyboard
