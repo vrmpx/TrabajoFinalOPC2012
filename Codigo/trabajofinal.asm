@@ -8,6 +8,10 @@ INCLUDE macros.inc
 
 ARRAYSIZE = 11
 
+;Se necesitan punteros a DWORD para que el procedimiento
+;de ordenamiento (SelectionSort) funcione
+PREAL10 TYPEDEF PTR REAL10
+
 .data
 X REAL10 102.03,65.0,1.002,33.29,33.44,55.18,22.1,0.0,1.0,99.0,1000.01
 ;X REAL10 5.4E10, 4.5E9, 3.4E8, 2.3E11, 1.2E5, 0.1E1
@@ -22,12 +26,80 @@ MAIN PROC
 	finit ;Initialize FPU
 
 	call PrintX
-	call InsertionSort
+	mov esi, OFFSET X
+	mov ecx, LENGTHOF X
+	call SelectionSort
 	call PrintX
 	
 	exit
 MAIN ENDP
 
+;--------------------------------------------------------
+; Ordenamiento por seleccion
+; Ordena el arreglo de REAL10's (elem. de 80bits) 
+; dado por ESI. Ordena ECX elementos
+; Recibe:
+; - Registro ESI: OFFSET del arreglo a ordenar
+; - Registro ECX: Numero de elementos a ordenar
+;--------------------------------------------------------
+SelectionSort PROC
+.data
+	act PREAL10 ? ;posicion actual que queremos ordenar
+	idx PREAL10 ? ;indice para moverse en el arreglo
+	imin PREAL10 ? ;apunta al valor minimo encontrado
+	tamArr DWORD ? ;tamano del arreglo "decreciente"
+	valfa REAL10 ? ;auxiliar para el stack FPU
+	valfb REAL10 ? ;auxiliar para el stack FPU
+.code
+	pushad
+	;sacamos los valores iniciales
+	mov tamArr, ecx
+	mov act, esi
+INI:
+	;preparamos el loop q busca el valor minimo
+	;entre [esi, esi + tamArr]
+	mov esi, act
+	mov idx, esi
+	mov imin, esi
+	mov ecx, tamArr
+	mov esi, imin
+	fld real10 ptr [esi]
+L1:
+	;nos preparamos para comparar
+	mov esi, idx
+	fld real10 ptr [esi]
+	call compara
+	jae NEXT
+	;si [idx] < [imin] updates imin  = idx	
+	fstp valfa
+	fstp valfa
+	mov esi, idx
+	mov imin, esi
+	mov esi, imin
+	fld real10 ptr [esi]
+	fld valfa
+NEXT:
+	;incrementamos idx pa q avancemos en el arreglo
+	fstp valfa
+	add idx, TYPE REAL10
+	loop L1
+	;hacemos el intercambio entre imin y act
+	mov esi, act
+	fld real10 ptr [esi]
+	mov esi, imin
+	fstp real10 ptr [esi]
+	mov esi, act
+	fstp real10 ptr [esi]
+	;avanzamos en la siguiente posicion a ordenar
+	add act, TYPE REAL10
+	dec tamArr
+	cmp tamArr, 0
+	jnz INI
+FIN:
+	popad
+	ret
+SelectionSort ENDP
+;--------------------------------------------------------
 
 ;--------------------------------------------------------
 ; InsertionSort
