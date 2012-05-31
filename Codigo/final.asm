@@ -1,20 +1,35 @@
+;================================================================
+; Proyecto final de OPC 2012
+; Ordena numeros en coma flotante
+; Autores:
+; - Victor Raul Martinez Palacios
+;   victor.martinez@itam.mx
+; - Fernando Aguilar Reyes
+;   fernando.aguilar@itam.mx
+;================================================================
 TITLE TrabajoFinal (final.asm)
-;
-;
-;
 
 INCLUDE Irvine16.inc
 INCLUDE macros.inc
 
+;Constantes globales
 ARRAYSIZE = 11
+CR = 13
+LF = 10
+DOS_OPEN_FILE = 03DH
+DOS_CLOSE_FILE = 03EH
+DOS_READ_FILE = 03FH
+DOS_INT = 021H
 
 ;Se necesitan punteros a DWORD para que el procedimiento
 ;de ordenamiento (SelectionSort) funcione
 PREAL10 TYPEDEF PTR REAL10
+PBYTE TYPEDEF PTR BYTE
 
 .data
 X REAL10 102.03,65.0,1.002,33.29,33.44,55.18,22.1,0.0,1.0,99.0,1000.01
 ;X REAL10 5.4E10, 4.5E9, 3.4E8, 2.3E11, 1.2E5, 0.1E1
+Num DWORD ?
 
 ;Variables used by Irvine Kip's Procedures
 pwr10  DWORD  1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
@@ -23,24 +38,237 @@ ErrMsg BYTE 0dh,0ah,"Floating point error",0dh,0ah,0
 
 .code
 MAIN PROC
-
+	;Nos ubicamos en el data segment
 	mov ax, @data
 	mov ds, ax
-
+	;Limpiamos la pantalla
 	call ClrScr
-	
-	finit ;Initialize FPU
-
-	;call printX
+	;Leemos datos de entrada
+	call LeeDatos
+	;Inicalizamos la FPU
+	finit
+	;Ordenamos
 	mov esi, OFFSET X
 	mov ecx, LENGTHOF X
-	call DumpRegs
 	call SelectionSort
-	;call InsertionSort
-	call printX
-	
+	;imprimimos en pantalla el resultado
+	;call printX
+
 	exit
 MAIN ENDP
+
+;-------------------------------------------------------
+;
+;-------------------------------------------------------
+Kill PROC uses edx
+.data
+	msg BYTE CR, LF, "*=MATANDO EL PROGRAMA=*", CR, LF, 0
+.code
+	mov edx, OFFSET msg
+	call WriteString
+	call DumpRegs
+	exit
+Kill ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+; Lee los datos a utilizar en el programa.
+; NOTA: 
+; El archivo de entrada debe estar en el mismo
+; directiorio que en el .EXE
+; Recibe:
+; NADA
+; Regresa:
+; Arreglo Global X con los numeros leidos del archivo
+;--------------------------------------------------------
+LeeDatos PROC uses eax ecx edx
+.data
+	LeeDatos_msgin BYTE "Archivo de entrada?", CR, LF, 0
+	LeeDatos_msgok BYTE "Archivo leido exitorsamente: ", 0
+	LeeDatos_msgerr BYTE "PROC LeeDatos: ERROR al leer el archivo: ", 0
+	nomArchivo BYTE "float.in", 0
+	linea BYTE 20 DUP (0)
+.code
+	;leemos el nombre del archivo
+	;mov edx, OFFSET LeeDatos_msgin
+	;call WriteString
+	;mov edx, OFFSET nomArchivo
+	;mov ecx, SIZEOF nomArchivo
+	;call ReadString
+	;call CrLf
+	;abrimos el archivo
+	mov dx, OFFSET nomArchivo
+	call AbreArchivoLect
+	mov bx, ax
+	jc ERR1
+	;imprimimos mensaje exitosos
+	mov edx, OFFSET LeeDatos_msgok
+	call WriteString
+	mov edx, OFFSET nomArchivo
+	call WriteString
+	call Crlf
+	;prueba de ReadFloat Modificado
+	mov bx, ax
+	call ReadFloat
+	;cerramos el archivo
+	mov bx, ax
+	call CierraArchivo
+	ret
+ERR1:
+	mov edx, OFFSET LeeDatos_msgerr
+	call WriteString
+	mov edx, OFFSET nomArchivo
+	call WriteString
+	call Crlf
+	call Kill
+	ret
+LeeDatos ENDP
+;--------------------------------------------------------
+
+
+;--------------------------------------------------------
+; Lee una linea del archivo abierto hasta encontrar CR
+; Recibe:
+; - Registro BX: Handle del archivo
+; - Registro DX: OFFSET del buffer poner los datos
+; Regresa:
+; - Lo leido en un arreglo apuntado por DX.
+;--------------------------------------------------------
+LeeLinea PROC uses bx cx di dx
+.data
+	msgerr BYTE "PROC LeeLinea: Error al leer los bytes del archivo", CR, LF, 0
+	caract BYTE 0
+	pbuff PBYTE ?
+	cont WORD 0
+.code
+	mov pbuff, dx
+	mov cx, 1
+	mov dx, OFFSET caract
+L1:
+	call LeeBytes
+	jc ERR
+	mov al, caract
+	mov di, pbuff
+	mov [di], al
+	add pbuff, TYPE BYTE
+	cmp caract, CR
+	jne L1
+	ret
+ERR:
+	mov edx, OFFSET msgerr
+	call WriteString
+	call Kill
+	ret
+LeeLinea ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Lee un byte (caracter) de un archivo
+; Recibe:
+; - Registro BX: Handle del archivo
+; Regresa:
+; - Registro AL: Caracter leido
+;--------------------------------------------------------
+LeeByte PROC uses cx dx
+.data
+	LeeByte_car BYTE 0
+.code
+	mov ah, DOS_READ_FILE
+	;bx nos lo dan como parametro
+	mov cx, 1
+	mov dx, OFFSET LeeByte_car
+	int DOS_INT
+	mov al, LeeByte_car
+	ret
+LeeByte ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Lee un bloque de bytes de un archivo abierto
+; Recibe:
+; - Registro BX: Handle del archivo
+; - Registro CX: Numero maximo de bytes a leer
+; - Registro DX: OFFSET del buffer poner los datos
+; Regresa:
+; - Registro AX: Si no hay error, regresa el numero de 
+;                bytes leidos. Si hay error, regresa el 
+;                codigo del error
+;--------------------------------------------------------
+LeeBytes PROC uses bx cx dx
+	mov ah, DOS_READ_FILE
+	int DOS_INT
+	ret
+LeeBytes ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Abre un archivo en modo de escritura
+; Recibe:
+; - Registro DX: OFFSET del String con el path del
+;                archivo.
+; Regresa:
+; - Flag CF: 0 si no hubo error, 1 si hay
+; - Registro AX: Si no hay error, regresa el handle del
+;                del archivo. Si hay error, regresa el 
+;                codigo del error
+;--------------------------------------------------------
+AbreArchivoEsc PROC uses cx
+	mov cx, 1
+	call AbreArchivo
+	ret
+AbreArchivoEsc ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Abre un archivo en modo de lectura
+; Recibe:
+; - Registro DX: OFFSET del String con el path del
+;                archivo.
+; Regresa:
+; - Flag CF: 0 si no hubo error, 1 si hay
+; - Registro AX: Si no hay error, regresa el handle del
+;                del archivo. Si hay error, regresa el 
+;                codigo del error
+;--------------------------------------------------------
+AbreArchivoLect PROC uses cx
+	mov cx, 0
+	call AbreArchivo
+	ret
+AbreArchivoLect ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Abre un archivo con las interrupciones de MS-DOS
+; Recibe:
+; - Registro CX: Modo de abir (lect, Esc)
+; - Registro DX: OFFSET del String con el path del
+;                archivo.
+; Regresa:
+; - Flag CF: 0 si no hubo error, 1 si hay
+; - Registro AX: Si no hay error, regresa el handle del
+;                del archivo. Si hay error, regresa el 
+;                codigo del error
+;--------------------------------------------------------
+AbreArchivo PROC uses cx dx
+	mov ah, DOS_OPEN_FILE
+	int DOS_INT
+	ret
+AbreArchivo ENDP
+;--------------------------------------------------------
+
+;--------------------------------------------------------
+; Cierra un archivo con las interrupciones de MS-DOS
+; Recibe:
+; - Registro BX: Handle del archivo
+; Regresa:
+; NADA
+;--------------------------------------------------------
+CierraArchivo PROC uses ax bx
+	mov ah, DOS_CLOSE_FILE
+	int DOS_INT
+	ret
+CierraArchivo ENDP
+;--------------------------------------------------------
 
 ;--------------------------------------------------------
 ; Ordenamiento por seleccion
@@ -546,7 +774,8 @@ GetChar  PROC
 ; Modified by Irvine (7/18/05): removed check for Ctl-C.
 ;------------------------------------------------------
 
-    call ReadChar   	; get a character from keyboard
+    ;call ReadChar   	; get a character from keyboard
+	call LeeByte ;lee el byte del archivo
     .IF (al == 0dh)	; Enter key?
        call Crlf
     .ELSE
