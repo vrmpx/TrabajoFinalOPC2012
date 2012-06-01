@@ -13,12 +13,13 @@ INCLUDE Irvine16.inc
 INCLUDE macros.inc
 
 ;Constantes globales
-ARRAYSIZE = 11
+
 CR = 13
 LF = 10
 DOS_OPEN_FILE = 03DH
 DOS_CLOSE_FILE = 03EH
 DOS_READ_FILE = 03FH
+DOS_WRITE_FILE = 040H
 DOS_INT = 021H
 
 ;Se necesitan punteros a DWORD para que el procedimiento
@@ -27,9 +28,10 @@ PREAL10 TYPEDEF PTR REAL10
 PBYTE TYPEDEF PTR BYTE
 
 .data
-X REAL10 102.03,65.0,1.002,33.29,33.44,55.18,22.1,0.0,1.0,99.0,1000.01
+X REAL10 1000 DUP(?)
 ;X REAL10 5.4E10, 4.5E9, 3.4E8, 2.3E11, 1.2E5, 0.1E1
 Num DWORD ?
+ARRAYSIZE WORD 11
 
 ;Variables used by Irvine Kip's Procedures
 pwr10  DWORD  1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
@@ -41,21 +43,22 @@ MAIN PROC
 	;Nos ubicamos en el data segment
 	mov ax, @data
 	mov ds, ax
+	;Inicalizamos la FPU
+	finit
 	;Limpiamos la pantalla
 	call ClrScr
 	;Leemos datos de entrada
 	call LeeDatos
-	;Inicalizamos la FPU
-	finit
 	;Ordenamos
-	mov esi, OFFSET X
-	mov ecx, LENGTHOF X
+	mov si, OFFSET X
+	mov cx, ARRAYSIZE
 	call SelectionSort
 	;imprimimos en pantalla el resultado
-	;call printX
+	call printX
 
 	exit
 MAIN ENDP
+
 
 ;-------------------------------------------------------
 ;
@@ -88,7 +91,6 @@ LeeDatos PROC uses eax ecx edx esi
 	LeeDatos_msgerr BYTE "PROC LeeDatos: ERROR al leer el archivo: ", 0
 	nomArchivo BYTE "float.in", 0
 	linea BYTE 20 DUP (0)
-	parr PREAL10 ?
 .code
 	;leemos el nombre del archivo
 	;mov edx, OFFSET LeeDatos_msgin
@@ -110,15 +112,19 @@ LeeDatos PROC uses eax ecx edx esi
 	call Crlf
 	;movemos el nandle
 	mov bx, ax
+	;leemos cuantos queremos leer
+	call LeeInt
+	mov ARRAYSIZE, ax
+	call WriteInt
+	call Crlf
+	mov cx, ax
+	mov si, 0
 LD_L1:
 	call ReadFloat
 	call LeeByte
-	call ReadFloat
-	
-	;MOV si, parr
-	;fstp real10 ptr [si]
-	;add parr, TYPE REAL10
-	;loop LD_L1
+	fstp X[si]
+	add si, TYPE REAL10
+	loop LD_L1
 	;cerramos el archivo
 	mov bx, ax
 	call CierraArchivo
