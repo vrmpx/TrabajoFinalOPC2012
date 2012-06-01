@@ -12,14 +12,60 @@ TITLE TrabajoFinal (final.asm)
 INCLUDE Irvine16.inc
 INCLUDE macros.inc
 
-;Constantes globales
 
+;-----------------------------------------------------------------
+; API
+;-----------------------------------------------------------------
+; MAIN
+; KILL
+; LeeDatos
+; LeeInt
+; LeeLinea
+; LeeByte
+; LeeBytes
+; EscribeDatos
+; EscribeByte
+; EscribeString
+; EscribeChar
+; EscribeInt
+; EscribeCrLf
+; CreaArchivoSalida
+; AbreArchivoEsc
+; AbreArchivoLect
+; AbreArchivo
+; CierraArchivo
+; SelectionSort
+; InsertionSort
+; compara
+; printX
+; DEBUG
+;-----------------------------------------------------------------
+; Procedimientos de Irvine Kip
+;-----------------------------------------------------------------
+; ReadFloat
+; WriteFloat
+; ShowFPUStack
+; GetChar
+; fpuSet
+; fpuReset
+; fChkNaN
+; fChkInfinity
+; fcompare
+; normalize
+; splitup
+; wrdigits
+; power10
+;-----------------------------------------------------------------
+
+
+;Constantes globales
 CR = 13
 LF = 10
 DOS_OPEN_FILE = 03DH
 DOS_CLOSE_FILE = 03EH
 DOS_READ_FILE = 03FH
 DOS_WRITE_FILE = 040H
+DOS_CREATE_FILE = 03CH
 DOS_INT = 021H
 
 ;Se necesitan punteros a DWORD para que el procedimiento
@@ -28,37 +74,64 @@ PREAL10 TYPEDEF PTR REAL10
 PBYTE TYPEDEF PTR BYTE
 
 .data
+
+;Arreglo a ordenar
 X REAL10 1000 DUP(?)
-;X REAL10 5.4E10, 4.5E9, 3.4E8, 2.3E11, 1.2E5, 0.1E1
+
+
 Num DWORD ?
+
+;Tamano del arreglo
 ARRAYSIZE WORD 11
 
 ;Variables used by Irvine Kip's Procedures
 pwr10  DWORD  1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000
 ErrMsg BYTE 0dh,0ah,"Floating point error",0dh,0ah,0
 
+msgMain01 BYTE "Lectura de datos...",CR,LF,0
+msgMain02 BYTE "Ordenando los datos...",CR,LF,0
+msgMain03 BYTE "Imprimiendo resultados...",CR,LF,0
+msgMain04 BYTE "Fin del programa",CR,LF,0
 
 .code
 MAIN PROC
+
 	;Nos ubicamos en el data segment
 	mov ax, @data
 	mov ds, ax
+	
 	;Inicalizamos la FPU
 	finit
+	
 	;Limpiamos la pantalla
 	call ClrScr
+
+	mov dx, OFFSET msgMain01
+	call WriteString
+	
 	;Leemos datos de entrada
 	call LeeDatos
+	
+	mov dx, OFFSET msgMain02
+	call WriteString
+	
 	;Ordenamos
 	mov si, OFFSET X
 	mov cx, ARRAYSIZE
 	call SelectionSort
-	;imprimimos en pantalla el resultado
-	call printX
-
+	
+	mov dx, OFFSET msgMain03
+	call WriteString
+	
+	;Escribimos los resultados al archivo
+	call EscribeDatos
+	
+	mov dx, OFFSET msgMain04
+	call WriteString
+	
 	exit
 MAIN ENDP
-
+;-------------------------------------------------------
 
 ;-------------------------------------------------------
 ;
@@ -88,6 +161,7 @@ LeeDatos PROC uses eax ecx edx esi
 .data
 	LeeDatos_msgin BYTE "Archivo de entrada?", CR, LF, 0
 	LeeDatos_msgok BYTE "Archivo leido exitorsamente: ", 0
+	LeeDatos_msgnum BYTE "Cantidad de registros a leer: ",0
 	LeeDatos_msgerr BYTE "PROC LeeDatos: ERROR al leer el archivo: ", 0
 	nomArchivo BYTE "float.in", 0
 	linea BYTE 20 DUP (0)
@@ -99,24 +173,32 @@ LeeDatos PROC uses eax ecx edx esi
 	;mov ecx, SIZEOF nomArchivo
 	;call ReadString
 	;call CrLf
+	
 	;abrimos el archivo
 	mov dx, OFFSET nomArchivo
 	call AbreArchivoLect
-	mov bx, ax
 	jc ERR1
+	
+	;Movemos el handle
+	mov bx, ax
+	
 	;imprimimos mensaje exitosos
 	mov dx, OFFSET LeeDatos_msgok
 	call WriteString
 	mov dx, OFFSET nomArchivo
 	call WriteString
 	call Crlf
-	;movemos el nandle
-	mov bx, ax
+	
 	;leemos cuantos queremos leer
 	call LeeInt
 	mov ARRAYSIZE, ax
+	
+	mov dx, OFFSET LeeDatos_msgnum
+	call WriteString
 	call WriteInt
 	call Crlf
+	
+	
 	mov cx, ax
 	mov si, 0
 LD_L1:
@@ -125,10 +207,12 @@ LD_L1:
 	fstp X[si]
 	add si, TYPE REAL10
 	loop LD_L1
+	
 	;cerramos el archivo
 	mov bx, ax
 	call CierraArchivo
 	ret
+	
 ERR1:
 	mov edx, OFFSET LeeDatos_msgerr
 	call WriteString
@@ -180,7 +264,6 @@ LI_FIN:
 	ret
 LeeInt ENDP
 ;--------------------------------------------------------
-
 
 ;--------------------------------------------------------
 ; Lee una linea del archivo abierto hasta encontrar CR
@@ -260,6 +343,152 @@ LeeBytes ENDP
 ;--------------------------------------------------------
 
 ;--------------------------------------------------------
+; Escribe el resultado en un archivo
+;	Abre el archivo de salida
+;	Imprime los contenidos de X
+;	Cierra el archivo
+;--------------------------------------------------------
+EscribeDatos PROC USES dx bx ax 
+.data
+	nombreArchivo_salida BYTE "float.out",0
+	error1_salida BYTE "PROC EscribeDatos: Error al abrir el archivo salida",13,10,0
+	error2_salida BYTE "PROC EscribeDatos: Error al escribir en el archivo salida",13,10,0
+.code
+	;Abrimos el archivo
+	mov dx, OFFSET nombreArchivo_salida
+	call CreaArchivoSalida
+	jc error1
+	
+	;Movemos el handle
+	mov bx, ax
+	
+	;Imprimimos X al archivo
+	call printX
+	
+	;Cerramos el archivo
+	call CierraArchivo
+	
+	ret
+error1:
+	mov edx, OFFSET error1_salida
+	call WriteString
+	ret
+	
+EscribeDatos ENDP
+;--------------------------------------------------------
+
+;-------------------------------------------------------
+; Escribe un byte al archivo
+; Recibe:
+;	al - byte a escribir
+;	bx - handle del archivo
+;-------------------------------------------------------
+EscribeByte PROC uses ax bx cx dx
+	xor dx,dx
+	mov dl, al
+	mov ah, DOS_WRITE_FILE 
+	;bx nos lo pasan
+	mov cx, 1
+	int DOS_INT
+	ret
+EscribeByte ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+; Escribe una cadena de characteres al archivo
+; Recibe:
+;	dx - OFFSET del String a escribir
+;	bx - handle del archivo
+;-------------------------------------------------------
+EscribeString PROC USES dx ax cx
+	pusha
+		INVOKE Str_length,dx   		; AX = string length
+		mov cx, ax
+		mov ah, DOS_WRITE_FILE
+		;BX lo recibimos como parametro
+		int DOS_INT
+	popa
+	ret
+EscribeString ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+;Escribe un caracter al archivo
+; Recibe:
+;	al - char a escribir
+;	bx - handle del archivo
+; Devuelve:
+;	CF - 1 si hubo error. 0 eoc.
+;	ax - El numero de bytes escritos si no hubo error.
+;		 o el codigo de error.
+;-------------------------------------------------------
+EscribeChar PROC USES cx dx ax
+.data
+	varTmp01 BYTE ?
+.code
+	mov varTmp01, al
+	mov ah, DOS_WRITE_FILE
+	mov cx, 1
+	mov dx, OFFSET varTmp01
+	int DOS_INT
+	ret
+EscribeChar ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+; Escribe un entero al archivo
+; Recibe:
+;	dx - entero a escribir
+;	bx - handle del archivo
+;-------------------------------------------------------
+EscribeInt PROC USES dx
+.data
+	intAEscribir WORD ?
+.code
+	add dx, 30h
+	mov intAEscribir, dx
+	mov dx, OFFSET intAEscribir
+	mov cx, 1
+	mov ah, DOS_WRITE_FILE
+	int DOS_INT
+	ret
+EscribeInt ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+; Escribe CR y LF al archivo
+; Recibe:
+;	bx - handle del archivo
+;-------------------------------------------------------
+EscribeCrLf PROC USES dx
+.data
+	tmp011 BYTE 13,10,0
+.code
+	mov dx, OFFSET tmp011
+	call EscribeString
+	ret
+EscribeCrLf ENDP
+;-------------------------------------------------------
+
+;--------------------------------------------------------
+; Crea el archivo de salida o 
+; lo trunca en caso de existir
+; Recibe:
+;	dx - OFFSET del nombre del archivo
+; Devuelve:
+;	CF - 1 si hubo error. 0 en otro caso
+;	ax - handle del archivo en modo escritura
+;		 o codigo de error (CF=1)
+;--------------------------------------------------------
+CreaArchivoSalida PROC
+	mov ah, DOS_CREATE_FILE
+	mov cx, 0
+	int DOS_INT
+CreaArchivoSalida ENDP
+;--------------------------------------------------------
+
+
+;--------------------------------------------------------
 ; Abre un archivo en modo de escritura
 ; Recibe:
 ; - Registro DX: OFFSET del String con el path del
@@ -271,7 +500,7 @@ LeeBytes ENDP
 ;                codigo del error
 ;--------------------------------------------------------
 AbreArchivoEsc PROC uses cx
-	mov cx, 1
+	mov al, 1
 	call AbreArchivo
 	ret
 AbreArchivoEsc ENDP
@@ -289,7 +518,7 @@ AbreArchivoEsc ENDP
 ;                codigo del error
 ;--------------------------------------------------------
 AbreArchivoLect PROC uses cx
-	mov cx, 0
+	mov al, 0
 	call AbreArchivo
 	ret
 AbreArchivoLect ENDP
@@ -477,16 +706,12 @@ compara ENDP
 ;--------------------------------------------------------
 PrintX PROC USES dx si cx
 .data
-	msg1 BYTE "=================================",13,10,0
-	msg2 BYTE "Begin Array: ",13,10,0
 	tmp0 REAL10 0.0
 .code
-	mov dx, OFFSET msg1
-	call WriteString
-	mov dx, OFFSET msg2
-	call WriteString
-	mov dx, OFFSET msg1
-	call WriteString
+
+	mov dx, ARRAYSIZE
+	call EscribeInt
+	call EscribeCrLf
 	
 	mov si, 0
 	mov cx, ARRAYSIZE
@@ -494,7 +719,7 @@ L1:
 	fld X[si]
 	call WriteFloat
 	fstp tmp0
-	call CrLf
+	call EscribeCrLf
 	add si, TYPE REAL10
 	loop L1
 	
@@ -673,7 +898,8 @@ W0:                                                       ;******
     ; here the thing is all zeroes
     mov   edx,offset zeroes
 W0a:
-    call  writeString
+    ;call  writeString
+	call EscribeString
 W0b:
     ;fstp  mantissa
 	fst	mantissa	; KRI 7/20/05: changed fstp to fst
@@ -686,11 +912,16 @@ W1:
     mov   al,'-'
     fchs    	; now have value >= 0
 W2:
-    call  WriteChar    ; the sign
+    ;call  WriteChar    ; the sign
+	call EscribeChar
+	
     call  fChkInfinity ; Check for infinity                ******
     jne   w2a          ; if not continue normally          ******
     mov   al, 0ECh     ; Print "infinity sign"             ******
-    call  writeChar                                       ;******
+	
+    ;call  writeChar                                       ;******
+	call EscribeChar
+	
     jmp   W0b          ; finish like for zeros             ******
 W2a:    
     ; Suppose the number's value is V.  We first find an exponent E
@@ -714,9 +945,15 @@ W4:
     div  pwr10+8*4
     and  al,0Fh
     add  al,'0'
-    call WriteChar
+	
+    ;call WriteChar
+	call EscribeChar
+	
     mov  al,'.'
-    call WriteChar
+	
+	;call WriteChar
+	call EscribeChar
+	
     mov  eax,edx
     mov  ecx,7
     call wrdigits
@@ -724,14 +961,20 @@ W4:
     ; that takes care of the decimals after the decimal point
     ; now work on the exponent part
     mov   al,'E'
-    call  WriteChar
+    
+	;call  WriteChar
+	call EscribeChar
+	
     .IF (exponent < 0)
       mov  al,'-'
       neg  exponent
     .ELSE
       mov  al,'+'
     .ENDIF
-    call  WriteChar
+	
+    ;call  WriteChar
+	call EscribeChar
+	
 
     movzx eax,exponent
     mul   iten
@@ -835,11 +1078,11 @@ GetChar  PROC
 
     ;call ReadChar   	; get a character from keyboard
 	call LeeByte ;lee el byte del archivo
-    .IF (al == 0dh)	; Enter key?
-       call Crlf
-    .ELSE
-       call WriteChar  	; and echo it back
-    .ENDIF
+    ;.IF (al == 0dh)	; Enter key?
+    ;   call Crlf
+    ;.ELSE
+    ;   call WriteChar  	; and echo it back
+    ;.ENDIF
     ret
 GetChar  ENDP
 
@@ -1068,7 +1311,10 @@ WR1:
     div  pwr10[ecx*4]
     and  al,0Fh
     add  al,'0'
-    call WriteChar
+	
+    ;call  WriteChar
+	call EscribeChar
+	
     mov  eax,edx
     loop WR1
     
