@@ -58,7 +58,7 @@ MAIN PROC
 
 	exit
 MAIN ENDP
-
+;-------------------------------------------------------
 
 ;-------------------------------------------------------
 ;
@@ -1137,3 +1137,33 @@ TOPPWR= ($-binpwr10)/type binpwr10
       ret
 power10  ENDP
 END MAIN
+
+;-------------------------------------------------------
+; Escribe en archivo un byte
+; Recibe:
+; - Registro AL: Byte a escribir
+; - Rebistro BX: Handle del archivo
+;-------------------------------------------------------
+EscribeByte PROC uses ax bx cx dx
+.data
+	eb_sal BYTE ?
+.code
+	mov eb_sal, al
+	mov ah, DOS_WRITE_FILE 
+	;bx nos lo pasan
+	mov cx, 1
+	mov dx, OFFSET eb_sal
+	int DOS_INT
+	ret
+EscribeByte ENDP
+;-------------------------------------------------------
+
+;-------------------------------------------------------
+; Escribe en archivo un arreglo de bytes terminado
+; en 0H
+; - Registro DS: Byte a escribir
+; - Rebistro BX: Handle del archivo
+;-------------------------------------------------------
+EscribeString PROC
+EscribeString ENDP
+;-------------------------------------------------------
