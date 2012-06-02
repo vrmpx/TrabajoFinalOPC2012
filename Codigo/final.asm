@@ -45,7 +45,6 @@ INCLUDE macros.inc
 ; ReadFloat
 ; WriteFloat
 ; ShowFPUStack
-; GetChar
 ; fpuSet
 ; fpuReset
 ; fChkNaN
@@ -372,6 +371,7 @@ EscribeDatos PROC USES dx bx ax
 error1:
 	mov edx, OFFSET error1_salida
 	call WriteString
+	call KILL
 	ret
 	
 EscribeDatos ENDP
@@ -769,17 +769,17 @@ power      REAL8   ?
     mov  sign,0
 
     ; look for an optional + or - first
-    call GetChar
+    call LeeByte
     cmp  al,'+'
     jne  R1
     ; is a '+' -- ignore it; sign= 0
-    call GetChar
+    call LeeByte
     jmp  R2
 R1:
     cmp  al,'-'
     jne  R2
     ; is a '-' -- sign= 1
-    call GetChar
+    call LeeByte
     inc  sign
 
     ; here we are done with the optional sign flag
@@ -794,12 +794,12 @@ R2:
         fmul   ten
         fild   itmp
         fadd
-        call   GetChar
+        call   LeeByte
       .ENDW
 
       ; decimal point in the mantissa?
       .IF (al == '.')
-        call GetChar
+        call LeeByte
         fldz     ; start the fractional part
         fld   ten  ; get the power part started
         fstp  power  ; will be 10, 100, 1000, etc.
@@ -813,7 +813,7 @@ R2:
           fld  power
           fmul ten
           fstp power
-          call GetChar
+          call LeeByte
         .ENDW
         fadd       ; add the front end to the back end
       .ENDIF
@@ -833,12 +833,12 @@ R2:
 
     .IF (al=='E' || al=='e')
       mov  expsign,1
-      call GetChar
+      call LeeByte
       .IF (al=='+')
-        call GetChar
+        call LeeByte
       .ELSEIF (al=='-')
         mov  expsign,-1
-        call GetChar
+        call LeeByte
       .ENDIF
       mov  expint,0
       .WHILE (al>='0' && al<= '9')
@@ -849,7 +849,7 @@ R2:
         mul  expint
         add  eax,ebx
         mov  expint,eax
-		call GetChar
+		call LeeByte
       .ENDW
 
       ; power10 gets expsign*10^expint, stuffs it in exponent.
@@ -1066,25 +1066,6 @@ LReturn:
 	ret  
 ShowFPUStack ENDP
 
-;------------------------------------------------------
-GetChar  PROC 
-;
-; Reads a single character from input,
-; echoes end of line character to console window.
-;
-; Modified by Irvine (7/18/05): removed check for Ctl-C.
-; Modified by Fernando Aguilar (05/31/12): Read from File
-;------------------------------------------------------
-
-    ;call ReadChar   	; get a character from keyboard
-	call LeeByte ;lee el byte del archivo
-    ;.IF (al == 0dh)	; Enter key?
-    ;   call Crlf
-    ;.ELSE
-    ;   call WriteChar  	; and echo it back
-    ;.ENDIF
-    ret
-GetChar  ENDP
 
 MAXEXPONENT=99
 ; truncate, double precision, all exceptions masked out
